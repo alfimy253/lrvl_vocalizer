@@ -20,8 +20,27 @@ if ($method !== 'POST') { header('Allow: POST'); fail(405, 'Method not allowed')
 
 $secret = getenv('TTS_API_KEY');
 if (!is_string($secret) || strlen($secret) < 32) fail(503, 'Service is not configured');
-$auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-if (!preg_match('/^Bearer\s+(.+)$/i', $auth, $m) || !hash_equals($secret, $m[1])) {
+// Apache hides Authorization from the CGI environment unless CGIPassAuth is on,
+// and rewrites leave a REDIRECT_ copy; getallheaders() reads the raw request.
+$auth = '';
+foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION'] as $key) {
+    if (isset($_SERVER[$key]) && is_string($_SERVER[$key]) && $_SERVER[$key] !== '') {
+        $auth = trim($_SERVER[$key]);
+        break;
+    }
+}
+if ($auth === '' && function_exists('getallheaders')) {
+    $headers = getallheaders();
+    if (is_array($headers)) {
+        foreach ($headers as $name => $value) {
+            if (is_string($name) && strcasecmp($name, 'Authorization') === 0 && is_string($value)) {
+                $auth = trim($value);
+                break;
+            }
+        }
+    }
+}
+if (!preg_match('/^Bearer\s+(\S+)$/i', $auth, $m) || !hash_equals($secret, $m[1])) {
     header('WWW-Authenticate: Bearer');
     fail(401, 'Unauthorized');
 }

@@ -35,6 +35,27 @@ curl -f -X POST http://localhost:10000/synthesize \
 
 Render test: replace `http://localhost:10000` with your Render HTTPS URL and use the Render secret.
 
+## Troubleshooting: curl always returns 401 Unauthorized
+
+A `401` with `WWW-Authenticate: Bearer` means the endpoint ran but could not match the secret. Work through these in order; each one alone causes a 401.
+
+1. **Apache withheld the header.** Apache does not pass `Authorization` to scripts unless told to, so `$_SERVER['HTTP_AUTHORIZATION']` is empty and every key looks wrong. This service now sets `CGIPassAuth On` in `apache-tts.conf`, copies the header in `public/.htaccess`, and falls back to `getallheaders()` in `public/index.php`. If you run an older copy, redeploy or apply those three changes. Rebuild the image after editing `apache-tts.conf`; it is baked in at build time.
+2. **No `TTS_API_KEY` in Render.** With a short or missing key the service returns `503 Service is not configured`, not 401, so check the status code before blaming the key.
+3. **A proxy or CDN dropped the header.** Some tunnels and proxies strip `Authorization`. Test the origin URL directly, and confirm with `curl -v` that the request actually sends `Authorization: Bearer ...`.
+4. **The key contains characters the shell mangles.** Copy it exactly; avoid trailing spaces and quote it: `-H "Authorization: Bearer $TTS_API_KEY"`.
+5. **Quotes pasted literally.** `-H "Authorization: Bearer 'abc'"` sends the quotes. Do not wrap the token in extra quotes.
+6. **Wrong scheme or case.** The prefix must be `Bearer`; the check is case-insensitive but a bare token without the prefix is rejected.
+7. **Env var edited but not redeployed.** Render only applies environment changes after the service restarts; confirm the new value took effect by changing one character and watching the 401 persist, then redeploy.
+
+Quick check that separates auth from synthesis: a 401 is authentication, a `503` is configuration, a `500` means the key was accepted and speech generation failed. Never commit or print the real key while debugging.
+
+```bash
+# Show what is actually sent, without printing the key to the terminal history
+curl -s -o /dev/null -w '%{http_code}\n' -X POST "$TTS_SERVICE_URL/synthesize" \
+  -H "Authorization: Bearer $TTS_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"text":"test"}'
+```
+
 ## Laravel integration
 
 Set `TTS_SERVICE_URL` and `TTS_API_KEY` in your Laravel environment, and put them in `config/services.php`:
