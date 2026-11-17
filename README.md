@@ -3,6 +3,7 @@
 A standalone PHP service that can be called from Laravel. It generates WAV speech locally with the Vocalizer PHP extension and the English Piper `en_US-amy-low` (female) and `en_US-john-medium` (male) models. No external paid TTS API is involved. This is a starter service, not a complete Laravel application, user system, or production-ready commercial platform.
 
 ## Deploy to Render
+url deployed : https://lrvl-vocalizer.onrender.com/
 
 1. Create a GitHub repository containing these files; push it.
 2. In Render, create a **Web Service**, connect the repository, and choose **Docker**. Render injects `PORT`; the entrypoint binds Apache to it. Set health check path to `/health`.
