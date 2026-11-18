@@ -18,13 +18,6 @@ if ($path === '/health' && $method === 'GET') {
 if ($path !== '/synthesize') fail(404, 'Not found');
 if ($method !== 'POST') { header('Allow: POST'); fail(405, 'Method not allowed'); }
 
-$secret = getenv('TTS_API_KEY');
-if (!is_string($secret) || strlen($secret) < 32) fail(503, 'Service is not configured');
-$auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-if (!preg_match('/^Bearer\s+(.+)$/i', $auth, $m) || !hash_equals($secret, $m[1])) {
-    header('WWW-Authenticate: Bearer');
-    fail(401, 'Unauthorized');
-}
 if (($_SERVER['CONTENT_LENGTH'] ?? 0) > 16384) fail(413, 'Request too large');
 $raw = file_get_contents('php://input', false, null, 0, 16385);
 if ($raw === false || strlen($raw) > 16384) fail(413, 'Request too large');
